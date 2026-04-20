@@ -52,10 +52,70 @@ app.get("/api/mes-schedule", async (req, res) => {
   }
 });
 
+const getByIdOrIndex = (collection, id) => {
+  if (!collection) {
+    return null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(collection, id)) {
+    return { id, ...collection[id] };
+  }
+
+  const index = Number(id);
+  if (!Number.isNaN(index) && Number.isInteger(index) && index >= 0) {
+    const entries = Object.entries(collection);
+    const entry = entries[index];
+    if (entry) {
+      const [entryId, payload] = entry;
+      return { id: entryId, ...payload };
+    }
+  }
+
+  return null;
+};
+
+app.get("/schedule/:id", async (req, res) => {
+  try {
+    const response = await fetch(`${BASE_URL}/schedule.json`);
+    const schedule = await response.json();
+    const item = getByIdOrIndex(schedule, req.params.id);
+
+    if (!item) {
+      return res.status(404).json({
+        error: "Not Found",
+        message: `No schedule record found for id/index '${req.params.id}'`
+      });
+    }
+
+    return res.json(item);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/mes/requisitionTickets/:id", async (req, res) => {
+  try {
+    const response = await fetch(`${BASE_URL}/mes/requisitionTickets.json`);
+    const tickets = await response.json();
+    const item = getByIdOrIndex(tickets, req.params.id);
+
+    if (!item) {
+      return res.status(404).json({
+        error: "Not Found",
+        message: `No requisition ticket found for id/index '${req.params.id}'`
+      });
+    }
+
+    return res.json(item);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 app.use((req, res) => {
   res.status(404).json({
     error: "Not Found",
-    message: "Use /api/mes-schedule"
+    message: "Use /api/mes-schedule, /schedule/:id or /mes/requisitionTickets/:id"
   });
 });
 
