@@ -5,6 +5,13 @@ const app = express();
 
 const BASE_URL = "https://scheduling-dd672-default-rtdb.asia-southeast1.firebasedatabase.app";
 
+app.get("/", (req, res) => {
+  res.json({
+    message: "API is running",
+    endpoints: ["/api/mes-schedule"]
+  });
+});
+
 app.get("/api/mes-schedule", async (req, res) => {
   try {
     const [scheduleRes, mesRes] = await Promise.all([
@@ -15,10 +22,11 @@ app.get("/api/mes-schedule", async (req, res) => {
     const schedule = await scheduleRes.json();
     const mes = await mesRes.json();
 
-    const scheduleList = Object.values(schedule || {});
-    const mesList = Object.values(mes || {});
+    const scheduleList = Object.values(schedule || {})
+      .filter(item => item && item.Chassis);
 
-    // ✅ OR 条件
+    const mesList = Object.values(mes || {}).filter(Boolean);
+
     const filteredMes = mesList.filter(item =>
       item.changeMode === "expedite" ||
       item.type === "after-signed-off-change"
@@ -42,6 +50,13 @@ app.get("/api/mes-schedule", async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+app.use((req, res) => {
+  res.status(404).json({
+    error: "Not Found",
+    message: "Use /api/mes-schedule"
+  });
 });
 
 const PORT = process.env.PORT || 3000;
