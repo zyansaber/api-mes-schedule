@@ -22,101 +22,40 @@ app.get("/api/mes-schedule", async (req, res) => {
     const schedule = await scheduleRes.json();
     const mes = await mesRes.json();
 
-    const scheduleList = Object.entries(schedule || {}).map(([id, item]) => ({
-      id,
-      ...item
-    }));
-    const requisitionTickets = Object.entries(mes || {}).map(([id, item]) => ({
-      id,
-      ...item
-    }));
+    const scheduleList = Object.values(schedule || {})
+      .filter(item => item && item.Chassis);
 
-    res.json({
-      schedule: scheduleList,
-      requisitionTickets
+    const mesList = Object.values(mes || {}).filter(Boolean);
+
+    const filteredMes = mesList.filter(item =>
+      item.changeMode === "expedite" ||
+      item.type === "after-signed-off-change"
+    );
+
+    const result = filteredMes.map(m => {
+      const sch = scheduleList.find(s => s.Chassis === m.chassis);
+
+      return {
+        chassis: m.chassis,
+        Dealer: sch?.Dealer || null,
+        SignedPlansReceived: sch?.["Signed Plans Received"] || null,
+        RegentProduction: sch?.["Regent Production"] || null,
+        changeMode: m.changeMode,
+        type: m.type
+      };
     });
+
+    res.json(result);
 
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.get("/schedule/:id", async (req, res) => {
-  try {
-    const id = req.params.id;
-    const directResponse = await fetch(`${BASE_URL}/schedule/${encodeURIComponent(id)}.json`);
-
-    if (!directResponse.ok) {
-      return res.status(directResponse.status).json({
-        error: "Upstream Error",
-        message: `Failed to fetch schedule/${id}`,
-        status: directResponse.status
-      });
-    }
-
-    const directItem = await directResponse.json();
-    if (directItem) {
-      return res.json({ id, ...directItem });
-    }
-
-    const index = Number(id);
-    if (!Number.isNaN(index) && Number.isInteger(index) && index >= 0) {
-      const response = await fetch(`${BASE_URL}/schedule.json`);
-      if (!response.ok) {
-        return res.status(response.status).json({
-          error: "Upstream Error",
-          message: "Failed to fetch schedule list for index lookup",
-          status: response.status
-        });
-      }
-
-      const schedule = await response.json();
-      const entry = Object.entries(schedule || {})[index];
-      if (entry) {
-        const [resolvedId, item] = entry;
-        return res.json({ id: resolvedId, ...item });
-      }
-    }
-
-    return res.status(404).json({
-      error: "Not Found",
-      message: `No schedule record found for id/index '${id}'`
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get("/mes/requisitionTickets/:id", async (req, res) => {
-  try {
-    const response = await fetch(`${BASE_URL}/mes/requisitionTickets/${encodeURIComponent(req.params.id)}.json`);
-
-    if (!response.ok) {
-      return res.status(response.status).json({
-        error: "Upstream Error",
-        message: `Failed to fetch mes/requisitionTickets/${req.params.id}`,
-        status: response.status
-      });
-    }
-
-    const item = await response.json();
-    if (!item) {
-      return res.status(404).json({
-        error: "Not Found",
-        message: `No requisition ticket found for id '${req.params.id}'`
-      });
-    }
-
-    return res.json({ id: req.params.id, ...item });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
 app.use((req, res) => {
   res.status(404).json({
     error: "Not Found",
-    message: "Use /api/mes-schedule, /schedule/:id, or /mes/requisitionTickets/:id"
+    message: "Use /api/mes-schedule"
   });
 });
 
