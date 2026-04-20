@@ -9,10 +9,27 @@ import os
 import socket
 import sys
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
 from urllib.request import urlopen
 
 
-DEFAULT_URL = os.getenv("MES_SCHEDULE_API_URL", "http://localhost:3000/api/mes-schedule")
+DEFAULT_API_PATH = "/api/mes-schedule"
+DEFAULT_BASE = "https://firebase-api-2mx9.onrender.com"
+DEFAULT_URL = os.getenv("MES_SCHEDULE_API_URL", DEFAULT_BASE)
+
+
+def normalize_api_url(url_or_base: str) -> str:
+    """Allow users to pass either full endpoint URL or base server URL."""
+    parsed = urlparse(url_or_base)
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError(f"Invalid URL: {url_or_base}")
+
+    path = parsed.path or ""
+    if path in ("", "/"):
+        return url_or_base.rstrip("/") + DEFAULT_API_PATH
+    if path.endswith(DEFAULT_API_PATH):
+        return url_or_base
+    return url_or_base.rstrip("/") + DEFAULT_API_PATH
 
 
 def fetch_mes_schedule(url: str, timeout: float = 10.0) -> list[dict]:
@@ -54,8 +71,8 @@ def _print_connection_help(url: str, exc: URLError) -> None:
     if is_refused:
         print(f"Connection refused: {url}", file=sys.stderr)
         print("Tips:", file=sys.stderr)
-        print("  1) Start the API service first (for this repo: `npm install` then `npm start`).", file=sys.stderr)
-        print("  2) Or pass a reachable URL with --url.", file=sys.stderr)
+        print("  1) Check whether your API URL is correct and reachable.", file=sys.stderr)
+        print("  2) For local mode, start the service first (`npm install` then `npm start`).", file=sys.stderr)
         print("  3) You can set MES_SCHEDULE_API_URL to avoid typing --url every time.", file=sys.stderr)
     elif isinstance(reason, socket.timeout):
         print(f"Request timed out when connecting to: {url}", file=sys.stderr)
@@ -66,13 +83,24 @@ def _print_connection_help(url: str, exc: URLError) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Read /api/mes-schedule API data")
-    parser.add_argument("--url", default=DEFAULT_URL, help=f"API URL (default: {DEFAULT_URL})")
+    parser.add_argument(
+        "--url",
+        default=DEFAULT_URL,
+        help=(
+            "API base URL or full endpoint URL "
+            f"(default: {DEFAULT_URL}; endpoint path: {DEFAULT_API_PATH})"
+        ),
+    )
     parser.add_argument("--timeout", type=float, default=10.0, help="HTTP timeout in seconds (default: 10)")
     parser.add_argument("--raw", action="store_true", help="Print raw JSON instead of table")
     args = parser.parse_args()
 
     try:
-        rows = fetch_mes_schedule(args.url, timeout=args.timeout)
+        api_url = normalize_api_url(args.url)
+        rows = fetch_mes_schedule(api_url, timeout=args.timeout)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
     except HTTPError as exc:
         print(f"HTTP error: {exc.code} {exc.reason}", file=sys.stderr)
         return 1
@@ -81,9 +109,6 @@ def main() -> int:
         return 1
     except json.JSONDecodeError as exc:
         print(f"Invalid JSON response: {exc}", file=sys.stderr)
-        return 1
-    except ValueError as exc:
-        print(str(exc), file=sys.stderr)
         return 1
 
     if args.raw:
