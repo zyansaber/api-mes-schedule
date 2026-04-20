@@ -5,13 +5,6 @@ const app = express();
 
 const BASE_URL = "https://scheduling-dd672-default-rtdb.asia-southeast1.firebasedatabase.app";
 
-app.get("/", (req, res) => {
-  res.json({
-    message: "API is running",
-    endpoints: ["/api/mes-schedule"]
-  });
-});
-
 app.get("/api/mes-schedule", async (req, res) => {
   try {
     const [scheduleRes, mesRes] = await Promise.all([
@@ -49,13 +42,6 @@ app.get("/api/mes-schedule", async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
-});
-
-app.use((req, res) => {
-  res.status(404).json({
-    error: "Not Found",
-    message: "Use /api/mes-schedule"
-  });
 });
 
 const PORT = process.env.PORT || 3000;
