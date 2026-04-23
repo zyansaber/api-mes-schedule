@@ -15,6 +15,7 @@ Returns two datasets:
 - `requisitionTickets`: data from `mes/requisitionTickets`, filtered to keep only records where:
   - `changeMode === "expedite"`, or
   - `type === "after-signed-off-change"`
+  and mapped to a reduced schema.
 
 ### `schedule` filter rules
 Only records that meet all conditions below are returned:
@@ -27,6 +28,7 @@ Only records that meet all conditions below are returned:
 - `Customer`
 - `Model`
 - `Model Year`
+- `Forecast Production Date`
 - `140daysplan` (boolean)
 
 ### `140daysplan` logic
@@ -44,6 +46,7 @@ Only records that meet all conditions below are returned:
       "Customer": "ACME",
       "Model": "X1",
       "Model Year": "2026",
+      "Forecast Production Date": "30/03/2026",
       "140daysplan": true
     }
   ],
@@ -52,7 +55,9 @@ Only records that meet all conditions below are returned:
       "id": "-Nx123",
       "chassis": "CH-001",
       "partNumber": "P-001",
-      "changeMode": "expedite"
+      "changeMode": "expedite",
+      "type": null,
+      "status": "open"
     }
   ]
 }
@@ -60,7 +65,43 @@ Only records that meet all conditions below are returned:
 
 ---
 
-## 2) GET `/schedule/:id`
+## 2) GET `/api/mes-schedule/:chassis`
+Returns all data in this API related to one chassis (exact match, case-insensitive), using the same filtering/mapping rules as `/api/mes-schedule`.
+
+- `schedule`: matching records where `Chassis === :chassis`, then reduced to API output fields
+- `requisitionTickets`: matching records where `chassis === :chassis` and ticket filter matches (`expedite` or `after-signed-off-change`), then reduced to API output fields
+
+### Success response example
+```json
+{
+  "chassis": "SRT255572",
+  "schedule": [
+    {
+      "Chassis": "SRT255572",
+      "Dealer": "Dealer A",
+      "Forecast Production Date": "30/03/2026"
+    }
+  ],
+  "requisitionTickets": [
+    {
+      "id": "-Nx123",
+      "chassis": "SRT255572",
+      "partNumber": "P-001",
+      "changeMode": "expedite",
+      "type": null,
+      "status": "open"
+    }
+  ]
+}
+```
+
+### Error responses
+- `404`: no schedule or ticket data found for the chassis
+- `5xx`: upstream or server error
+
+---
+
+## 3) GET `/schedule/:id`
 Reads one record from `schedule/{id}`.
 
 - If `:id` is a Firebase key: read `/schedule/{id}.json` directly.
@@ -81,7 +122,7 @@ Reads one record from `schedule/{id}`.
 
 ---
 
-## 3) GET `/mes/requisitionTickets/:id`
+## 4) GET `/mes/requisitionTickets/:id`
 Reads one record from `mes/requisitionTickets/{id}`.
 
 ### Success response example
@@ -100,8 +141,9 @@ Reads one record from `mes/requisitionTickets/{id}`.
 
 ---
 
-## 4) Other paths
+## 5) Other paths
 Unmatched routes return `404` with available endpoint hints:
 - `/api/mes-schedule`
+- `/api/mes-schedule/:chassis`
 - `/schedule/:id`
 - `/mes/requisitionTickets/:id`
