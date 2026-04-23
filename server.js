@@ -8,7 +8,7 @@ const BASE_URL = "https://scheduling-dd672-default-rtdb.asia-southeast1.firebase
 app.get("/", (req, res) => {
   res.json({
     message: "API is running",
-    endpoints: ["/api", "/api/mes-schedule", "/api/mes-schedule/:chassis", "/schedule/:id", "/mes/requisitionTickets/:id"]
+    endpoints: ["/api", "/api/mes-schedule", "/schedule/:id", "/mes/requisitionTickets/:id"]
   });
 });
 
@@ -16,7 +16,7 @@ app.get("/api", (req, res) => {
   res.json({
     message: "Firebase API is running",
     baseUrl: "https://firebase-api-2mx9.onrender.com/api",
-    endpoints: ["/api/mes-schedule", "/api/mes-schedule/:chassis", "/schedule/:id", "/mes/requisitionTickets/:id"]
+    endpoints: ["/api/mes-schedule", "/schedule/:id", "/mes/requisitionTickets/:id"]
   });
 });
 
@@ -74,7 +74,6 @@ app.get("/api/mes-schedule", async (req, res) => {
           Customer: item.Customer || null,
           Model: item.Model || null,
           "Model Year": item["Model Year"] || null,
-          "Forecast Production Date": item["Forecast Production Date"] || null,
           "140daysplan": isAfterThreshold && !isStockEnding
         };
       });
@@ -94,65 +93,6 @@ app.get("/api/mes-schedule", async (req, res) => {
       requisitionTickets
     });
 
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get("/api/mes-schedule/:chassis", async (req, res) => {
-  try {
-    const chassis = String(req.params.chassis || "").trim();
-    if (!chassis) {
-      return res.status(400).json({
-        error: "Bad Request",
-        message: "Chassis is required"
-      });
-    }
-
-    const [scheduleRes, ticketsRes] = await Promise.all([
-      fetch(`${BASE_URL}/schedule.json`),
-      fetch(`${BASE_URL}/mes/requisitionTickets.json`)
-    ]);
-
-    if (!scheduleRes.ok) {
-      return res.status(scheduleRes.status).json({
-        error: "Upstream Error",
-        message: "Failed to fetch schedule",
-        status: scheduleRes.status
-      });
-    }
-    if (!ticketsRes.ok) {
-      return res.status(ticketsRes.status).json({
-        error: "Upstream Error",
-        message: "Failed to fetch mes/requisitionTickets",
-        status: ticketsRes.status
-      });
-    }
-
-    const schedule = await scheduleRes.json();
-    const tickets = await ticketsRes.json();
-
-    const chassisLower = chassis.toLowerCase();
-    const scheduleMatches = Object.entries(schedule || {})
-      .filter(([, item]) => item && String(item.Chassis || "").trim().toLowerCase() === chassisLower)
-      .map(([id, item]) => ({ id, ...item }));
-
-    const requisitionTicketMatches = Object.entries(tickets || {})
-      .filter(([, item]) => item && String(item.chassis || "").trim().toLowerCase() === chassisLower)
-      .map(([id, item]) => ({ id, ...item }));
-
-    if (!scheduleMatches.length && !requisitionTicketMatches.length) {
-      return res.status(404).json({
-        error: "Not Found",
-        message: `No data found for chassis '${chassis}'`
-      });
-    }
-
-    return res.json({
-      chassis,
-      schedule: scheduleMatches,
-      requisitionTickets: requisitionTicketMatches
-    });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
@@ -233,7 +173,7 @@ app.get("/mes/requisitionTickets/:id", async (req, res) => {
 app.use((req, res) => {
   res.status(404).json({
     error: "Not Found",
-    message: "Use /api/mes-schedule, /api/mes-schedule/:chassis, /schedule/:id, or /mes/requisitionTickets/:id"
+    message: "Use /api/mes-schedule, /schedule/:id, or /mes/requisitionTickets/:id"
   });
 });
 
