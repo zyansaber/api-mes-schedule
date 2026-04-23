@@ -5,10 +5,19 @@ const app = express();
 
 const BASE_URL = "https://scheduling-dd672-default-rtdb.asia-southeast1.firebasedatabase.app";
 
+const mapRequisitionTicket = (id, item) => ({
+  id,
+  chassis: item.chassis || null,
+  partNumber: item.partNumber || null,
+  changeMode: item.changeMode || null,
+  type: item.type || null,
+  status: item.status || null
+});
+
 app.get("/", (req, res) => {
   res.json({
     message: "API is running",
-    endpoints: ["/api", "/api/mes-schedule", "/schedule/:id", "/mes/requisitionTickets/:id"]
+    endpoints: ["/api", "/api/mes-schedule", "/api/mes-schedule/:chassis", "/schedule/:id", "/mes/requisitionTickets/:id"]
   });
 });
 
@@ -16,7 +25,7 @@ app.get("/api", (req, res) => {
   res.json({
     message: "Firebase API is running",
     baseUrl: "https://firebase-api-2mx9.onrender.com/api",
-    endpoints: ["/api/mes-schedule", "/schedule/:id", "/mes/requisitionTickets/:id"]
+    endpoints: ["/api/mes-schedule", "/api/mes-schedule/:chassis", "/schedule/:id", "/mes/requisitionTickets/:id"]
   });
 });
 
@@ -74,6 +83,7 @@ app.get("/api/mes-schedule", async (req, res) => {
           Customer: item.Customer || null,
           Model: item.Model || null,
           "Model Year": item["Model Year"] || null,
+          "Forecast Production Date": item["Forecast Production Date"] || null,
           "140daysplan": isAfterThreshold && !isStockEnding
         };
       });
@@ -83,16 +93,107 @@ app.get("/api/mes-schedule", async (req, res) => {
         item &&
         (item.changeMode === "expedite" || item.type === "after-signed-off-change")
       )
-      .map(([id, item]) => ({
-        id,
-        ...item
-      }));
+      .map(([id, item]) => mapRequisitionTicket(id, item));
 
     return res.json({
       schedule: scheduleList,
       requisitionTickets
     });
 
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/mes-schedule/:chassis", async (req, res) => {
+  try {
+    const chassis = String(req.params.chassis || "").trim();
+    if (!chassis) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Chassis is required"
+      });
+    }
+
+    const [scheduleRes, ticketsRes] = await Promise.all([
+      fetch(`${BASE_URL}/schedule.json`),
+      fetch(`${BASE_URL}/mes/requisitionTickets.json`)
+    ]);
+
+    if (!scheduleRes.ok) {
+      return res.status(scheduleRes.status).json({
+        error: "Upstream Error",
+        message: "Failed to fetch schedule",
+        status: scheduleRes.status
+      });
+    }
+    if (!ticketsRes.ok) {
+      return res.status(ticketsRes.status).json({
+        error: "Upstream Error",
+        message: "Failed to fetch mes/requisitionTickets",
+        status: ticketsRes.status
+      });
+    }
+
+    const schedule = await scheduleRes.json();
+    const tickets = await ticketsRes.json();
+
+    const chassisLower = chassis.toLowerCase();
+    const thresholdDate = new Date(Date.UTC(2026, 2, 23)); // 23/03/2026
+    const parseDdMmYyyy = (value) => {
+      const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(value || "").trim());
+      if (!match) {
+        return null;
+      }
+      const [, dd, mm, yyyy] = match;
+      return new Date(Date.UTC(Number(yyyy), Number(mm) - 1, Number(dd)));
+    };
+
+    const scheduleMatches = Object.values(schedule || {})
+      .filter(Boolean)
+      .filter((item) => String(item.Chassis || "").trim().toLowerCase() === chassisLower)
+      .filter((item) => {
+        const signedPlans = String(item["Signed Plans Received"] || "").trim();
+        const regentProduction = String(item["Regent Production"] || "").trim().toLowerCase();
+        return signedPlans && signedPlans.toLowerCase() !== "no" && regentProduction !== "finished";
+      })
+      .map((item) => {
+        const signedPlansDate = parseDdMmYyyy(item["Signed Plans Received"]);
+        const customer = String(item.Customer || "").trim();
+        const isStockEnding = /stock$/i.test(customer);
+        const isAfterThreshold = Boolean(signedPlansDate && signedPlansDate > thresholdDate);
+
+        return {
+          Chassis: item.Chassis || null,
+          Dealer: item.Dealer || null,
+          Customer: item.Customer || null,
+          Model: item.Model || null,
+          "Model Year": item["Model Year"] || null,
+          "Forecast Production Date": item["Forecast Production Date"] || null,
+          "140daysplan": isAfterThreshold && !isStockEnding
+        };
+      });
+
+    const requisitionTicketMatches = Object.entries(tickets || {})
+      .filter(([, item]) =>
+        item &&
+        String(item.chassis || "").trim().toLowerCase() === chassisLower &&
+        (item.changeMode === "expedite" || item.type === "after-signed-off-change")
+      )
+      .map(([id, item]) => mapRequisitionTicket(id, item));
+
+    if (!scheduleMatches.length && !requisitionTicketMatches.length) {
+      return res.status(404).json({
+        error: "Not Found",
+        message: `No data found for chassis '${chassis}'`
+      });
+    }
+
+    return res.json({
+      chassis,
+      schedule: scheduleMatches,
+      requisitionTickets: requisitionTicketMatches
+    });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
@@ -173,7 +274,7 @@ app.get("/mes/requisitionTickets/:id", async (req, res) => {
 app.use((req, res) => {
   res.status(404).json({
     error: "Not Found",
-    message: "Use /api/mes-schedule, /schedule/:id, or /mes/requisitionTickets/:id"
+    message: "Use /api/mes-schedule, /api/mes-schedule/:chassis, /schedule/:id, or /mes/requisitionTickets/:id"
   });
 });
 
