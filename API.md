@@ -27,8 +27,8 @@ Only records that meet all conditions below are returned:
 - `Dealer`
 - `Customer`
 - `Model`
-- `Model Year`
-- `Forecast Production Date`
+- `ModelYear`
+- `ForecastProductionDate`
 - `140daysplan` (boolean)
 
 ### `140daysplan` logic
@@ -45,8 +45,8 @@ Only records that meet all conditions below are returned:
       "Dealer": "Dealer A",
       "Customer": "ACME",
       "Model": "X1",
-      "Model Year": "2026",
-      "Forecast Production Date": "30/03/2026",
+      "ModelYear": "2026",
+      "ForecastProductionDate": "30/03/2026",
       "140daysplan": true
     }
   ],
@@ -79,7 +79,7 @@ Returns all data in this API related to one chassis (exact match, case-insensiti
     {
       "Chassis": "SRT255572",
       "Dealer": "Dealer A",
-      "Forecast Production Date": "30/03/2026"
+      "ForecastProductionDate": "30/03/2026"
     }
   ],
   "requisitionTickets": [

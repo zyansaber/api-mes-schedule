@@ -82,8 +82,8 @@ app.get("/api/mes-schedule", async (req, res) => {
           Dealer: item.Dealer || null,
           Customer: item.Customer || null,
           Model: item.Model || null,
-          "Model Year": item["Model Year"] || null,
-          "Forecast Production Date": item["Forecast Production Date"] || null,
+          ModelYear: item["Model Year"] || null,
+          ForecastProductionDate: item["Forecast Production Date"] || null,
           "140daysplan": isAfterThreshold && !isStockEnding
         };
       });
@@ -168,8 +168,8 @@ app.get("/api/mes-schedule/:chassis", async (req, res) => {
           Dealer: item.Dealer || null,
           Customer: item.Customer || null,
           Model: item.Model || null,
-          "Model Year": item["Model Year"] || null,
-          "Forecast Production Date": item["Forecast Production Date"] || null,
+          ModelYear: item["Model Year"] || null,
+          ForecastProductionDate: item["Forecast Production Date"] || null,
           "140daysplan": isAfterThreshold && !isStockEnding
         };
       });
