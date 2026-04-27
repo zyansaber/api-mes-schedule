@@ -27,14 +27,20 @@ Only records that meet all conditions below are returned:
 - `Dealer`
 - `Customer`
 - `Model`
-- `Model Year`
-- `Forecast Production Date`
+- `ModelYear`
+- `ForecastProductionDate`
+- `SignedPlansReceived`
+- `aging` (integer days: today - SignedPlansReceived)
 - `140daysplan` (boolean)
 
 ### `140daysplan` logic
 `140daysplan` is `true` only when both conditions are met:
 1. `Signed Plans Received` can be parsed as `dd/mm/yyyy` and is **after** `23/03/2026`
 2. `Customer` does not end with `stock` (case-insensitive)
+
+### `aging` logic
+`aging` equals **today (UTC date)** minus `Signed Plans Received` in days.
+- If `Signed Plans Received` is invalid or missing, `aging` is `null`.
 
 ### Success response example
 ```json
@@ -45,8 +51,10 @@ Only records that meet all conditions below are returned:
       "Dealer": "Dealer A",
       "Customer": "ACME",
       "Model": "X1",
-      "Model Year": "2026",
-      "Forecast Production Date": "30/03/2026",
+      "ModelYear": "2026",
+      "ForecastProductionDate": "30/03/2026",
+      "SignedPlansReceived": "24/03/2026",
+      "aging": 34,
       "140daysplan": true
     }
   ],
@@ -79,7 +87,9 @@ Returns all data in this API related to one chassis (exact match, case-insensiti
     {
       "Chassis": "SRT255572",
       "Dealer": "Dealer A",
-      "Forecast Production Date": "30/03/2026"
+      "ForecastProductionDate": "30/03/2026",
+      "SignedPlansReceived": "24/03/2026",
+      "aging": 34
     }
   ],
   "requisitionTickets": [
