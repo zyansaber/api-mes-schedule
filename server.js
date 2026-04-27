@@ -54,6 +54,8 @@ app.get("/api/mes-schedule", async (req, res) => {
     const schedule = await scheduleRes.json();
     const tickets = await ticketsRes.json();
     const thresholdDate = new Date(Date.UTC(2026, 2, 23)); // 23/03/2026
+    const now = new Date();
+    const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
     const parseDdMmYyyy = (value) => {
       const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(value || "").trim());
@@ -76,14 +78,19 @@ app.get("/api/mes-schedule", async (req, res) => {
         const customer = String(item.Customer || "").trim();
         const isStockEnding = /stock$/i.test(customer);
         const isAfterThreshold = Boolean(signedPlansDate && signedPlansDate > thresholdDate);
+        const aging = signedPlansDate
+          ? Math.floor((todayUtc.getTime() - signedPlansDate.getTime()) / (24 * 60 * 60 * 1000))
+          : null;
 
         return {
           Chassis: item.Chassis || null,
           Dealer: item.Dealer || null,
           Customer: item.Customer || null,
           Model: item.Model || null,
-          "Model Year": item["Model Year"] || null,
-          "Forecast Production Date": item["Forecast Production Date"] || null,
+          ModelYear: item["Model Year"] || null,
+          ForecastProductionDate: item["Forecast Production Date"] || null,
+          SignedPlansReceived: item["Signed Plans Received"] || null,
+          aging,
           "140daysplan": isAfterThreshold && !isStockEnding
         };
       });
@@ -140,6 +147,8 @@ app.get("/api/mes-schedule/:chassis", async (req, res) => {
 
     const chassisLower = chassis.toLowerCase();
     const thresholdDate = new Date(Date.UTC(2026, 2, 23)); // 23/03/2026
+    const now = new Date();
+    const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     const parseDdMmYyyy = (value) => {
       const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(value || "").trim());
       if (!match) {
@@ -162,14 +171,19 @@ app.get("/api/mes-schedule/:chassis", async (req, res) => {
         const customer = String(item.Customer || "").trim();
         const isStockEnding = /stock$/i.test(customer);
         const isAfterThreshold = Boolean(signedPlansDate && signedPlansDate > thresholdDate);
+        const aging = signedPlansDate
+          ? Math.floor((todayUtc.getTime() - signedPlansDate.getTime()) / (24 * 60 * 60 * 1000))
+          : null;
 
         return {
           Chassis: item.Chassis || null,
           Dealer: item.Dealer || null,
           Customer: item.Customer || null,
           Model: item.Model || null,
-          "Model Year": item["Model Year"] || null,
-          "Forecast Production Date": item["Forecast Production Date"] || null,
+          ModelYear: item["Model Year"] || null,
+          ForecastProductionDate: item["Forecast Production Date"] || null,
+          SignedPlansReceived: item["Signed Plans Received"] || null,
+          aging,
           "140daysplan": isAfterThreshold && !isStockEnding
         };
       });
