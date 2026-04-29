@@ -28,6 +28,15 @@ const mapRequisitionTicket = (id, item) => ({
   status: item.status || null
 });
 
+const mapCampervanScheduleItem = (item) => ({
+  Chassis: item.chassisNumber || null,
+  Dealer: item.dealer || null,
+  Customer: item.customer || null,
+  Model: item.model || null,
+  ForecastProductionDate: item.forecastProductionDate || null,
+  VinNumber: item.vinNumber || null
+});
+
 app.get("/", (req, res) => {
   res.json({
     message: "API is running",
@@ -45,8 +54,9 @@ app.get("/api", (req, res) => {
 
 app.get("/api/mes-schedule", async (req, res) => {
   try {
-    const [scheduleRes, ticketsRes] = await Promise.all([
+    const [scheduleRes, campervanScheduleRes, ticketsRes] = await Promise.all([
       fetch(`${BASE_URL}/schedule.json`),
+      fetch(`${BASE_URL}/campervanSchedule.json`),
       fetch(`${BASE_URL}/mes/requisitionTickets.json`)
     ]);
 
@@ -64,8 +74,16 @@ app.get("/api/mes-schedule", async (req, res) => {
         status: ticketsRes.status
       });
     }
+    if (!campervanScheduleRes.ok) {
+      return res.status(campervanScheduleRes.status).json({
+        error: "Upstream Error",
+        message: "Failed to fetch campervanSchedule",
+        status: campervanScheduleRes.status
+      });
+    }
 
     const schedule = await scheduleRes.json();
+    const campervanSchedule = await campervanScheduleRes.json();
     const tickets = await ticketsRes.json();
     const thresholdDate = new Date(Date.UTC(2026, 2, 23)); // 23/03/2026
     const now = new Date();
@@ -109,6 +127,10 @@ app.get("/api/mes-schedule", async (req, res) => {
         };
       });
 
+    const campervanScheduleList = Object.values(campervanSchedule || {})
+      .filter(Boolean)
+      .map((item) => mapCampervanScheduleItem(item));
+
     const requisitionTickets = Object.entries(tickets || {})
       .filter(([, item]) =>
         item &&
@@ -118,6 +140,7 @@ app.get("/api/mes-schedule", async (req, res) => {
 
     return res.json({
       schedule: scheduleList,
+      campervanSchedule: campervanScheduleList,
       requisitionTickets
     });
 
@@ -136,8 +159,9 @@ app.get("/api/mes-schedule/:chassis", async (req, res) => {
       });
     }
 
-    const [scheduleRes, ticketsRes] = await Promise.all([
+    const [scheduleRes, campervanScheduleRes, ticketsRes] = await Promise.all([
       fetch(`${BASE_URL}/schedule.json`),
+      fetch(`${BASE_URL}/campervanSchedule.json`),
       fetch(`${BASE_URL}/mes/requisitionTickets.json`)
     ]);
 
@@ -155,8 +179,16 @@ app.get("/api/mes-schedule/:chassis", async (req, res) => {
         status: ticketsRes.status
       });
     }
+    if (!campervanScheduleRes.ok) {
+      return res.status(campervanScheduleRes.status).json({
+        error: "Upstream Error",
+        message: "Failed to fetch campervanSchedule",
+        status: campervanScheduleRes.status
+      });
+    }
 
     const schedule = await scheduleRes.json();
+    const campervanSchedule = await campervanScheduleRes.json();
     const tickets = await ticketsRes.json();
 
     const chassisLower = chassis.toLowerCase();
@@ -202,6 +234,11 @@ app.get("/api/mes-schedule/:chassis", async (req, res) => {
         };
       });
 
+    const campervanScheduleMatches = Object.values(campervanSchedule || {})
+      .filter(Boolean)
+      .filter((item) => String(item.chassisNumber || "").trim().toLowerCase() === chassisLower)
+      .map((item) => mapCampervanScheduleItem(item));
+
     const requisitionTicketMatches = Object.entries(tickets || {})
       .filter(([, item]) =>
         item &&
@@ -210,16 +247,18 @@ app.get("/api/mes-schedule/:chassis", async (req, res) => {
       )
       .map(([id, item]) => mapRequisitionTicket(id, item));
 
-    if (!scheduleMatches.length && !requisitionTicketMatches.length) {
+    if (!scheduleMatches.length && !campervanScheduleMatches.length && !requisitionTicketMatches.length) {
       return res.status(404).json({
         error: "Not Found",
         message: `No data found for chassis '${chassis}'`
       });
     }
 
+    const effectiveSchedule = scheduleMatches.length ? scheduleMatches : campervanScheduleMatches;
+
     return res.json({
       chassis,
-      schedule: scheduleMatches,
+      schedule: effectiveSchedule,
       requisitionTickets: requisitionTicketMatches
     });
   } catch (error) {
