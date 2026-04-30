@@ -33,6 +33,7 @@ const mapCampervanScheduleItem = (item) => ({
   Dealer: item.dealer || null,
   Customer: item.customer || null,
   Model: item.model || null,
+  ModelYear: item.modelYear || null,
   ForecastProductionDate: item.forecastProductionDate || null,
   VinNumber: item.vinNumber || null
 });
@@ -122,6 +123,7 @@ app.get("/api/mes-schedule", async (req, res) => {
           ModelYear: item["Model Year"] || null,
           ForecastProductionDate: item["Forecast Production Date"] || null,
           SignedPlansReceived: item["Signed Plans Received"] || null,
+          RegentProduction: item["Regent Production"] || null,
           aging,
           "140daysplan": isAfterThreshold && !isStockEnding
         };
@@ -229,6 +231,7 @@ app.get("/api/mes-schedule/:chassis", async (req, res) => {
           ModelYear: item["Model Year"] || null,
           ForecastProductionDate: item["Forecast Production Date"] || null,
           SignedPlansReceived: item["Signed Plans Received"] || null,
+          RegentProduction: item["Regent Production"] || null,
           aging,
           "140daysplan": isAfterThreshold && !isStockEnding
         };
