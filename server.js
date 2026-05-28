@@ -51,6 +51,17 @@ const getDealerStockLevel = (dealer, dealerStockLevelMap) => {
   }
   return dealerStockLevelMap[dealerKey] || "normal";
 };
+
+const getCustomerType = (customer) => {
+  const normalizedCustomer = String(customer || "").trim().toLowerCase();
+  if (normalizedCustomer.includes("prototype")) {
+    return "prototype";
+  }
+  if (normalizedCustomer.endsWith("stock")) {
+    return "stock";
+  }
+  return "customer";
+};
 const mapCampervanScheduleItem = (item) => ({
   Chassis: item.chassisNumber || null,
   Dealer: item.dealer || null,
@@ -58,7 +69,8 @@ const mapCampervanScheduleItem = (item) => ({
   Model: item.model || null,
   ModelYear: item.modelYear || null,
   ForecastProductionDate: item.forecastProductionDate || null,
-  VinNumber: item.vinNumber || null
+  VinNumber: item.vinNumber || null,
+  customerType: getCustomerType(item.customer)
 });
 
 app.get("/", (req, res) => {
@@ -159,7 +171,8 @@ app.get("/api/mes-schedule", async (req, res) => {
           RegentProduction: item["Regent Production"] || null,
           aging,
           "140daysplan": isAfterThreshold && !isStockEnding,
-          dealerStockLevel: getDealerStockLevel(item.Dealer, dealerStockLevelMap)
+          dealerStockLevel: getDealerStockLevel(item.Dealer, dealerStockLevelMap),
+          customerType: getCustomerType(item.Customer)
         };
       });
 
@@ -278,7 +291,8 @@ app.get("/api/mes-schedule/:chassis", async (req, res) => {
           RegentProduction: item["Regent Production"] || null,
           aging,
           "140daysplan": isAfterThreshold && !isStockEnding,
-          dealerStockLevel: getDealerStockLevel(item.Dealer, dealerStockLevelMap)
+          dealerStockLevel: getDealerStockLevel(item.Dealer, dealerStockLevelMap),
+          customerType: getCustomerType(item.Customer)
         };
       });
 
