@@ -10,8 +10,9 @@
 ---
 
 ## 1) GET `/api/mes-schedule`
-Returns two datasets:
+Returns three datasets:
 - `schedule`: data from the `schedule` node, filtered by business rules and mapped to a reduced schema.
+- `campervanSchedule`: data from the `campervanSchedule` node, mapped to a reduced schema.
 - `requisitionTickets`: data from `mes/requisitionTickets`, filtered to keep only records where:
   - `changeMode === "expedite"`, or
   - `type === "after-signed-off-change"`
@@ -32,6 +33,40 @@ Only records that meet all conditions below are returned:
 - `SignedPlansReceived`
 - `aging` (integer days: today - SignedPlansReceived)
 - `140daysplan` (boolean)
+- `dealerStockLevel` (`"less" | "over" | "normal"`)
+- `customerType` (`"stock" | "prototype" | "customer"`)
+
+### `campervanSchedule` output fields
+- `Chassis`
+- `Dealer`
+- `Customer`
+- `Model`
+- `ModelYear`
+- `ForecastProductionDate`
+- `VinNumber`
+- `customerType` (`"stock" | "prototype" | "customer"`)
+
+### `dealerStockLevel` mapping logic
+Source node: `scheduleDealerStockLevels`
+
+Example source format:
+```json
+{
+  "Forest Glen": "over",
+  "Frankston": "less",
+  "Some Dealer": "normal"
+}
+```
+
+Rules:
+1. Match by dealer name (case-insensitive, trim spaces).
+2. If source value is exactly `less` or `over` (case-insensitive), output that value.
+3. If source value is `normal`, any other unexpected value, or dealer not found, output `normal`.
+
+### `customerType` mapping logic
+1. If `Customer` contains `prototype` (case-insensitive), output `prototype`.
+2. Else if `Customer` ends with `stock` (case-insensitive), output `stock`.
+3. Otherwise output `customer`.
 
 ### `140daysplan` logic
 `140daysplan` is `true` only when both conditions are met:
@@ -55,7 +90,21 @@ Only records that meet all conditions below are returned:
       "ForecastProductionDate": "30/03/2026",
       "SignedPlansReceived": "24/03/2026",
       "aging": 34,
-      "140daysplan": true
+      "140daysplan": true,
+      "dealerStockLevel": "over",
+      "customerType": "customer"
+    }
+  ],
+  "campervanSchedule": [
+    {
+      "Chassis": "CV-001",
+      "Dealer": "Frankston",
+      "Customer": "ABC Pty Ltd",
+      "Model": "Camper 2",
+      "ModelYear": "2026",
+      "ForecastProductionDate": "01/04/2026",
+      "VinNumber": "VIN123",
+      "customerType": "stock"
     }
   ],
   "requisitionTickets": [
@@ -77,6 +126,7 @@ Only records that meet all conditions below are returned:
 Returns all data in this API related to one chassis (exact match, case-insensitive), using the same filtering/mapping rules as `/api/mes-schedule`.
 
 - `schedule`: matching records where `Chassis === :chassis`, then reduced to API output fields
+- `campervanSchedule`: matching records where `chassisNumber === :chassis`, then reduced to API output fields
 - `requisitionTickets`: matching records where `chassis === :chassis` and ticket filter matches (`expedite` or `after-signed-off-change`), then reduced to API output fields
 
 ### Success response example
@@ -89,7 +139,9 @@ Returns all data in this API related to one chassis (exact match, case-insensiti
       "Dealer": "Dealer A",
       "ForecastProductionDate": "30/03/2026",
       "SignedPlansReceived": "24/03/2026",
-      "aging": 34
+      "aging": 34,
+      "dealerStockLevel": "normal",
+      "customerType": "prototype"
     }
   ],
   "requisitionTickets": [
