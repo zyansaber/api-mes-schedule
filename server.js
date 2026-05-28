@@ -28,38 +28,14 @@ const mapRequisitionTicket = (id, item) => ({
   status: item.status || null
 });
 
-
-const normalizeDealerStockLevel = (value) => {
-  const level = String(value || "").trim().toLowerCase();
-  if (level === "less" || level === "over") {
-    return level;
-  }
-  return "normal";
-};
-
-const buildDealerStockLevelMap = (dealerStockLevels) => {
-  return Object.entries(dealerStockLevels || {}).reduce((acc, [dealer, level]) => {
-    acc[String(dealer || "").trim().toLowerCase()] = normalizeDealerStockLevel(level);
-    return acc;
-  }, {});
-};
-
-const getDealerStockLevel = (dealer, dealerStockLevelMap) => {
-  const dealerKey = String(dealer || "").trim().toLowerCase();
-  if (!dealerKey) {
-    return "normal";
-  }
-  return dealerStockLevelMap[dealerKey] || "normal";
-};
-const mapCampervanScheduleItem = (item, dealerStockLevelMap) => ({
+const mapCampervanScheduleItem = (item) => ({
   Chassis: item.chassisNumber || null,
   Dealer: item.dealer || null,
   Customer: item.customer || null,
   Model: item.model || null,
   ModelYear: item.modelYear || null,
   ForecastProductionDate: item.forecastProductionDate || null,
-  VinNumber: item.vinNumber || null,
-  dealerStockLevel: getDealerStockLevel(item.dealer, dealerStockLevelMap)
+  VinNumber: item.vinNumber || null
 });
 
 app.get("/", (req, res) => {
@@ -79,11 +55,10 @@ app.get("/api", (req, res) => {
 
 app.get("/api/mes-schedule", async (req, res) => {
   try {
-    const [scheduleRes, campervanScheduleRes, ticketsRes, dealerStockLevelsRes] = await Promise.all([
+    const [scheduleRes, campervanScheduleRes, ticketsRes] = await Promise.all([
       fetch(`${BASE_URL}/schedule.json`),
       fetch(`${BASE_URL}/campervanSchedule.json`),
-      fetch(`${BASE_URL}/mes/requisitionTickets.json`),
-      fetch(`${BASE_URL}/scheduleDealerStockLevels.json`)
+      fetch(`${BASE_URL}/mes/requisitionTickets.json`)
     ]);
 
     if (!scheduleRes.ok) {
@@ -100,13 +75,6 @@ app.get("/api/mes-schedule", async (req, res) => {
         status: ticketsRes.status
       });
     }
-    if (!dealerStockLevelsRes.ok) {
-      return res.status(dealerStockLevelsRes.status).json({
-        error: "Upstream Error",
-        message: "Failed to fetch scheduleDealerStockLevels",
-        status: dealerStockLevelsRes.status
-      });
-    }
     if (!campervanScheduleRes.ok) {
       return res.status(campervanScheduleRes.status).json({
         error: "Upstream Error",
@@ -118,8 +86,6 @@ app.get("/api/mes-schedule", async (req, res) => {
     const schedule = await scheduleRes.json();
     const campervanSchedule = await campervanScheduleRes.json();
     const tickets = await ticketsRes.json();
-    const dealerStockLevels = await dealerStockLevelsRes.json();
-    const dealerStockLevelMap = buildDealerStockLevelMap(dealerStockLevels);
     const thresholdDate = new Date(Date.UTC(2026, 2, 23)); // 23/03/2026
     const now = new Date();
     const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -159,14 +125,13 @@ app.get("/api/mes-schedule", async (req, res) => {
           SignedPlansReceived: item["Signed Plans Received"] || null,
           RegentProduction: item["Regent Production"] || null,
           aging,
-          "140daysplan": isAfterThreshold && !isStockEnding,
-          dealerStockLevel: getDealerStockLevel(item.Dealer, dealerStockLevelMap)
+          "140daysplan": isAfterThreshold && !isStockEnding
         };
       });
 
     const campervanScheduleList = Object.values(campervanSchedule || {})
       .filter(Boolean)
-      .map((item) => mapCampervanScheduleItem(item, dealerStockLevelMap));
+      .map((item) => mapCampervanScheduleItem(item));
 
     const requisitionTickets = Object.entries(tickets || {})
       .filter(([, item]) =>
@@ -196,11 +161,10 @@ app.get("/api/mes-schedule/:chassis", async (req, res) => {
       });
     }
 
-    const [scheduleRes, campervanScheduleRes, ticketsRes, dealerStockLevelsRes] = await Promise.all([
+    const [scheduleRes, campervanScheduleRes, ticketsRes] = await Promise.all([
       fetch(`${BASE_URL}/schedule.json`),
       fetch(`${BASE_URL}/campervanSchedule.json`),
-      fetch(`${BASE_URL}/mes/requisitionTickets.json`),
-      fetch(`${BASE_URL}/scheduleDealerStockLevels.json`)
+      fetch(`${BASE_URL}/mes/requisitionTickets.json`)
     ]);
 
     if (!scheduleRes.ok) {
@@ -217,13 +181,6 @@ app.get("/api/mes-schedule/:chassis", async (req, res) => {
         status: ticketsRes.status
       });
     }
-    if (!dealerStockLevelsRes.ok) {
-      return res.status(dealerStockLevelsRes.status).json({
-        error: "Upstream Error",
-        message: "Failed to fetch scheduleDealerStockLevels",
-        status: dealerStockLevelsRes.status
-      });
-    }
     if (!campervanScheduleRes.ok) {
       return res.status(campervanScheduleRes.status).json({
         error: "Upstream Error",
@@ -235,8 +192,6 @@ app.get("/api/mes-schedule/:chassis", async (req, res) => {
     const schedule = await scheduleRes.json();
     const campervanSchedule = await campervanScheduleRes.json();
     const tickets = await ticketsRes.json();
-    const dealerStockLevels = await dealerStockLevelsRes.json();
-    const dealerStockLevelMap = buildDealerStockLevelMap(dealerStockLevels);
 
     const chassisLower = chassis.toLowerCase();
     const thresholdDate = new Date(Date.UTC(2026, 2, 23)); // 23/03/2026
@@ -278,15 +233,14 @@ app.get("/api/mes-schedule/:chassis", async (req, res) => {
           SignedPlansReceived: item["Signed Plans Received"] || null,
           RegentProduction: item["Regent Production"] || null,
           aging,
-          "140daysplan": isAfterThreshold && !isStockEnding,
-          dealerStockLevel: getDealerStockLevel(item.Dealer, dealerStockLevelMap)
+          "140daysplan": isAfterThreshold && !isStockEnding
         };
       });
 
     const campervanScheduleMatches = Object.values(campervanSchedule || {})
       .filter(Boolean)
       .filter((item) => String(item.chassisNumber || "").trim().toLowerCase() === chassisLower)
-      .map((item) => mapCampervanScheduleItem(item, dealerStockLevelMap));
+      .map((item) => mapCampervanScheduleItem(item));
 
     const requisitionTicketMatches = Object.entries(tickets || {})
       .filter(([, item]) =>
