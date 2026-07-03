@@ -203,9 +203,75 @@ Reads one record from `mes/requisitionTickets/{id}`.
 
 ---
 
-## 5) Other paths
+
+---
+
+## 5) GET `/greenrv/schedulingapi`
+Returns schedule orders for Green RV dealers only.
+
+### Dealer filter
+Only records from the `schedule` node where `Dealer` matches one of these values are returned (case-insensitive, trim spaces):
+- `Green Show`
+- `Slacks Creek`
+- `Forest Glen`
+
+### Output fields
+Each order includes these fields from the source schedule record:
+- `Chassis`
+- `Customer`
+- `Dealer`
+- `Forecast Production Date`
+- `Model`
+- `Model Year`
+- `Order Received Date`
+- `Regent Production`
+- `Shipment`
+- `Signed Plans Received`
+- `production status` (read from source field `Vin Number`)
+
+### Optional encrypted response
+Add `?encrypt=true` or request header `x-encrypt-response: true` to return an encrypted payload.
+
+Encrypted responses use AES-256-GCM. Set `GREENRV_API_ENCRYPTION_KEY` in the server environment before requesting encryption. The key is hashed with SHA-256 to produce the AES key.
+
+Encrypted response shape:
+```json
+{
+  "encrypted": true,
+  "algorithm": "aes-256-gcm",
+  "iv": "base64-iv",
+  "authTag": "base64-auth-tag",
+  "data": "base64-ciphertext"
+}
+```
+
+### Success response example
+```json
+{
+  "orders": [
+    {
+      "Chassis": "CH-001",
+      "Customer": "ACME",
+      "Dealer": "Forest Glen",
+      "Forecast Production Date": "30/03/2026",
+      "Model": "X1",
+      "Model Year": "2026",
+      "Order Received Date": "01/02/2026",
+      "Regent Production": "In Production",
+      "Shipment": "Pending",
+      "Signed Plans Received": "24/03/2026",
+      "production status": "VIN123"
+    }
+  ],
+  "orderCount": 1,
+  "dealers": ["green show", "slacks creek", "forest glen"]
+}
+```
+
+## 6) Other paths
 Unmatched routes return `404` with available endpoint hints:
 - `/api/mes-schedule`
 - `/api/mes-schedule/:chassis`
+- `/greenrv/schedulingapi`
 - `/schedule/:id`
 - `/mes/requisitionTickets/:id`
