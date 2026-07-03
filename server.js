@@ -1,6 +1,7 @@
 const express = require("express");
 const fetch = require("node-fetch");
 const cors = require("cors");
+const { registerGreenRvSchedulingApi } = require("./greenrvSchedulingApi");
 
 const app = express();
 
@@ -12,13 +13,12 @@ const allowedOrigins = [
 app.use(cors({
   origin: allowedOrigins,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-api-key"],
   credentials: true
 }));
 app.options("*", cors());
 
 const BASE_URL = "https://scheduling-dd672-default-rtdb.asia-southeast1.firebasedatabase.app";
-
 const mapRequisitionTicket = (id, item) => ({
   id,
   chassis: item.chassis || null,
@@ -76,7 +76,7 @@ const mapCampervanScheduleItem = (item) => ({
 app.get("/", (req, res) => {
   res.json({
     message: "API is running",
-    endpoints: ["/api", "/api/mes-schedule", "/api/mes-schedule/:chassis", "/schedule/:id", "/mes/requisitionTickets/:id"]
+    endpoints: ["/api", "/api/mes-schedule", "/api/mes-schedule/:chassis", "/greenrv/schedulingapi", "/schedule/:id", "/mes/requisitionTickets/:id"]
   });
 });
 
@@ -84,9 +84,12 @@ app.get("/api", (req, res) => {
   res.json({
     message: "Firebase API is running",
     baseUrl: "https://firebase-api-2mx9.onrender.com/api",
-    endpoints: ["/api/mes-schedule", "/api/mes-schedule/:chassis", "/schedule/:id", "/mes/requisitionTickets/:id"]
+    endpoints: ["/api/mes-schedule", "/api/mes-schedule/:chassis", "/greenrv/schedulingapi", "/schedule/:id", "/mes/requisitionTickets/:id"]
   });
 });
+
+
+registerGreenRvSchedulingApi(app, { fetch, baseUrl: BASE_URL });
 
 app.get("/api/mes-schedule", async (req, res) => {
   try {
@@ -403,7 +406,7 @@ app.get("/mes/requisitionTickets/:id", async (req, res) => {
 app.use((req, res) => {
   res.status(404).json({
     error: "Not Found",
-    message: "Use /api/mes-schedule, /api/mes-schedule/:chassis, /schedule/:id, or /mes/requisitionTickets/:id"
+    message: "Use /api/mes-schedule, /api/mes-schedule/:chassis, /greenrv/schedulingapi, /schedule/:id, or /mes/requisitionTickets/:id"
   });
 });
 
