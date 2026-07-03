@@ -203,9 +203,136 @@ Reads one record from `mes/requisitionTickets/{id}`.
 
 ---
 
-## 5) Other paths
+
+---
+
+## 5) GET `/greenrv/schedulingapi`
+
+For a user-focused setup and usage guide, see [`GREENRV_API_USAGE.md`](GREENRV_API_USAGE.md).
+
+Returns encrypted schedule orders for Green RV dealers only.
+
+This endpoint is private. It will not return schedule data unless both server environment variables are configured and the request supplies the correct API key.
+
+### Required server environment variables
+- `GREENRV_SCHEDULING_API_KEY`: shared API key required from the caller
+- `GREENRV_API_ENCRYPTION_KEY`: shared encryption secret used to decrypt the response payload
+
+### Required request authentication
+Send either one of these headers:
+
+```http
+x-api-key: <GREENRV_SCHEDULING_API_KEY>
+```
+
+```http
+Authorization: Bearer <GREENRV_SCHEDULING_API_KEY>
+```
+
+If the key is missing or incorrect, the endpoint returns `401` and does not fetch or return schedule data. If the server secrets are not configured, it returns `503`.
+
+### Example request
+```bash
+curl -H "x-api-key: $GREENRV_SCHEDULING_API_KEY" \
+  https://firebase-api-2mx9.onrender.com/greenrv/schedulingapi
+```
+
+The response from this request is encrypted. Pass the full response JSON and `GREENRV_API_ENCRYPTION_KEY` into the decrypt helper below to read the `orders` payload.
+
+### Encrypted response
+Successful responses are always encrypted with AES-256-GCM; plaintext Green RV orders are not returned by this endpoint. The server hashes `GREENRV_API_ENCRYPTION_KEY` with SHA-256 to produce the AES-256 key.
+
+Encrypted response shape:
+```json
+{
+  "encrypted": true,
+  "algorithm": "aes-256-gcm",
+  "iv": "base64-iv",
+  "authTag": "base64-auth-tag",
+  "data": "base64-ciphertext"
+}
+```
+
+Example Node.js decrypt helper:
+```js
+const crypto = require("crypto");
+
+const decryptGreenRvPayload = (payload, encryptionSecret) => {
+  const key = crypto.createHash("sha256").update(encryptionSecret).digest();
+  const decipher = crypto.createDecipheriv(
+    "aes-256-gcm",
+    key,
+    Buffer.from(payload.iv, "base64")
+  );
+
+  decipher.setAuthTag(Buffer.from(payload.authTag, "base64"));
+  const decrypted = Buffer.concat([
+    decipher.update(Buffer.from(payload.data, "base64")),
+    decipher.final()
+  ]);
+
+  return JSON.parse(decrypted.toString("utf8"));
+};
+```
+
+### Dealer filter
+Only records from the `schedule` node are returned when both conditions match:
+1. `Customer` is not empty.
+2. `Dealer` matches one of these values (case-insensitive, trim spaces):
+   - `Green Show`
+   - `Slacks Creek`
+   - `Forest Glen`
+   - `Heatherbrae`
+   - `Toowoomba`
+   - `Bundaberg`
+
+### Decrypted payload fields
+After decrypting `data`, each order includes these fields from the source schedule record:
+- `Chassis`
+- `Customer`
+- `Dealer`
+- `Forecast Production Date`
+- `Model`
+- `Model Year`
+- `Order Received Date`
+- `Regent Production`
+- `Shipment`
+- `Signed Plans Received`
+- `production status`
+- `spec`
+- `plan`
+
+If `production status` is only numbers, it is returned as `Longtree Production: <number>`.
+
+### Decrypted payload example
+```json
+{
+  "orders": [
+    {
+      "Chassis": "CH-001",
+      "Customer": "ACME",
+      "Dealer": "Forest Glen",
+      "Forecast Production Date": "30/03/2026",
+      "Model": "X1",
+      "Model Year": "2026",
+      "Order Received Date": "01/02/2026",
+      "Regent Production": "In Production",
+      "Shipment": "Pending",
+      "Signed Plans Received": "24/03/2026",
+      "production status": "Longtree Production: 12345",
+      "spec": "https://example.com/spec.xlsx",
+      "plan": "https://example.com/plan.jpg"
+    }
+  ],
+  "orderCount": 1,
+  "dealers": ["green show", "slacks creek", "forest glen"]
+}
+```
+
+## 6) Other paths
 Unmatched routes return `404` with available endpoint hints:
 - `/api/mes-schedule`
 - `/api/mes-schedule/:chassis`
+- `/greenrv/schedulingapi`
 - `/schedule/:id`
 - `/mes/requisitionTickets/:id`
