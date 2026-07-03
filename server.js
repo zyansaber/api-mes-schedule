@@ -1,7 +1,6 @@
 const express = require("express");
 const fetch = require("node-fetch");
 const cors = require("cors");
-const crypto = require("crypto");
 
 const app = express();
 
@@ -19,57 +18,6 @@ app.use(cors({
 app.options("*", cors());
 
 const BASE_URL = "https://scheduling-dd672-default-rtdb.asia-southeast1.firebasedatabase.app";
-const GREENRV_DEALERS = new Set(["green show", "slacks creek", "forest glen"]);
-const GREENRV_ENCRYPTION_KEY = process.env.GREENRV_API_ENCRYPTION_KEY || "";
-
-const shouldEncryptGreenRvResponse = (req) => {
-  const queryValue = String(req.query.encrypt || "").trim().toLowerCase();
-  const headerValue = String(req.get("x-encrypt-response") || "").trim().toLowerCase();
-  return [queryValue, headerValue].some((value) => value === "true" || value === "1" || value === "yes");
-};
-
-const getGreenRvEncryptionKey = () => {
-  if (!GREENRV_ENCRYPTION_KEY) {
-    return null;
-  }
-  return crypto.createHash("sha256").update(GREENRV_ENCRYPTION_KEY).digest();
-};
-
-const encryptJsonPayload = (payload) => {
-  const key = getGreenRvEncryptionKey();
-  if (!key) {
-    throw new Error("GREENRV_API_ENCRYPTION_KEY is required for encrypted responses");
-  }
-
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
-  const plaintext = Buffer.from(JSON.stringify(payload), "utf8");
-  const encrypted = Buffer.concat([cipher.update(plaintext), cipher.final()]);
-  const authTag = cipher.getAuthTag();
-
-  return {
-    encrypted: true,
-    algorithm: "aes-256-gcm",
-    iv: iv.toString("base64"),
-    authTag: authTag.toString("base64"),
-    data: encrypted.toString("base64")
-  };
-};
-
-const sendGreenRvResponse = (req, res, payload) => {
-  if (!shouldEncryptGreenRvResponse(req)) {
-    return res.json(payload);
-  }
-
-  try {
-    return res.json(encryptJsonPayload(payload));
-  } catch (error) {
-    return res.status(500).json({
-      error: "Encryption Error",
-      message: error.message
-    });
-  }
-};
 
 const mapRequisitionTicket = (id, item) => ({
   id,
@@ -125,24 +73,10 @@ const mapCampervanScheduleItem = (item) => ({
   customerType: getCustomerType(item.customer)
 });
 
-const mapGreenRvScheduleItem = (item) => ({
-  Chassis: item.Chassis || null,
-  Customer: item.Customer || null,
-  Dealer: item.Dealer || null,
-  "Forecast Production Date": item["Forecast Production Date"] || null,
-  Model: item.Model || null,
-  "Model Year": item["Model Year"] || null,
-  "Order Received Date": item["Order Received Date"] || null,
-  "Regent Production": item["Regent Production"] || null,
-  Shipment: item.Shipment || null,
-  "Signed Plans Received": item["Signed Plans Received"] || null,
-  "production status": item["Vin Number"] || null
-});
-
 app.get("/", (req, res) => {
   res.json({
     message: "API is running",
-    endpoints: ["/api", "/api/mes-schedule", "/api/mes-schedule/:chassis", "/greenrv/schedulingapi", "/schedule/:id", "/mes/requisitionTickets/:id"]
+    endpoints: ["/api", "/api/mes-schedule", "/api/mes-schedule/:chassis", "/schedule/:id", "/mes/requisitionTickets/:id"]
   });
 });
 
@@ -150,37 +84,8 @@ app.get("/api", (req, res) => {
   res.json({
     message: "Firebase API is running",
     baseUrl: "https://firebase-api-2mx9.onrender.com/api",
-    endpoints: ["/api/mes-schedule", "/api/mes-schedule/:chassis", "/greenrv/schedulingapi", "/schedule/:id", "/mes/requisitionTickets/:id"]
+    endpoints: ["/api/mes-schedule", "/api/mes-schedule/:chassis", "/schedule/:id", "/mes/requisitionTickets/:id"]
   });
-});
-
-
-app.get("/greenrv/schedulingapi", async (req, res) => {
-  try {
-    const response = await fetch(`${BASE_URL}/schedule.json`);
-
-    if (!response.ok) {
-      return res.status(response.status).json({
-        error: "Upstream Error",
-        message: "Failed to fetch schedule",
-        status: response.status
-      });
-    }
-
-    const schedule = await response.json();
-    const orders = Object.values(schedule || {})
-      .filter(Boolean)
-      .filter((item) => GREENRV_DEALERS.has(String(item.Dealer || "").trim().toLowerCase()))
-      .map((item) => mapGreenRvScheduleItem(item));
-
-    return sendGreenRvResponse(req, res, {
-      orders,
-      orderCount: orders.length,
-      dealers: Array.from(GREENRV_DEALERS)
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
 });
 
 app.get("/api/mes-schedule", async (req, res) => {
@@ -498,7 +403,7 @@ app.get("/mes/requisitionTickets/:id", async (req, res) => {
 app.use((req, res) => {
   res.status(404).json({
     error: "Not Found",
-    message: "Use /api/mes-schedule, /api/mes-schedule/:chassis, /greenrv/schedulingapi, /schedule/:id, or /mes/requisitionTickets/:id"
+    message: "Use /api/mes-schedule, /api/mes-schedule/:chassis, /schedule/:id, or /mes/requisitionTickets/:id"
   });
 });
 
