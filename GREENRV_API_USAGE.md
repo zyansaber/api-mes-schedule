@@ -16,7 +16,7 @@ GET
 
 ## What this API includes
 
-The API reads from the Firebase `schedule` and `campervanSchedule` nodes and only includes orders that match both conditions:
+The API reads from the Firebase `schedule` node and only includes orders that match both conditions:
 
 1. `Customer` is not empty.
 2. `Dealer` is one of:
@@ -27,7 +27,7 @@ The API reads from the Firebase `schedule` and `campervanSchedule` nodes and onl
    - `Toowoomba`
    - `Bundaberg`
 
-After decrypting the response, each `schedule` order includes these fields:
+After decrypting the response, each order includes these fields:
 
 - `Chassis`
 - `Customer`
@@ -43,18 +43,7 @@ After decrypting the response, each `schedule` order includes these fields:
 - `spec`
 - `plan`
 
-Each `campervanSchedule` order uses the same display names for the shared schedule fields:
-
-- `Chassis`
-- `Customer`
-- `Dealer`
-- `Forecast Production Date`
-- `Regent Production`
-- `Signed Plans Received`
-- `spec`
-- `plan`
-
-For `schedule` orders, if `production status` is only numbers, it is returned as `Longtree Production: <number>`.
+If `production status` is only numbers, it is returned as `Longtree Production: <number>`.
 
 ## Security model
 
