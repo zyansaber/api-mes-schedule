@@ -122,6 +122,21 @@ const mapGreenRvScheduleItem = (item, specPlan = {}) => {
   };
 };
 
+const mapGreenRvCampervanScheduleItem = (item, specPlan = {}) => {
+  const matchedSpecPlan = getSpecPlanForChassis(specPlan, item.chassisNumber);
+
+  return {
+    Chassis: item.chassisNumber || null,
+    Customer: item.customer || null,
+    Dealer: item.dealer || null,
+    "Forecast Production Date": item.forecastProductionDate || null,
+    "Regent Production": item.regentProduction || item["Regent Production"] || null,
+    "Signed Plans Received": item.signedOrderReceived || item.signedPlansReceived || item["Signed Plans Received"] || null,
+    spec: matchedSpecPlan.spec || null,
+    plan: matchedSpecPlan.plan || null
+  };
+};
+
 const registerGreenRvSchedulingApi = (app, { fetch, baseUrl }) => {
   app.get("/greenrv/schedulingapi", async (req, res) => {
     if (!authorizeGreenRvRequest(req, res)) {
@@ -129,8 +144,9 @@ const registerGreenRvSchedulingApi = (app, { fetch, baseUrl }) => {
     }
 
     try {
-      const [scheduleResponse, specPlanResponse] = await Promise.all([
+      const [scheduleResponse, campervanScheduleResponse, specPlanResponse] = await Promise.all([
         fetch(`${baseUrl}/schedule.json`),
+        fetch(`${baseUrl}/campervanSchedule.json`),
         fetch(`${baseUrl}/spec_plan.json`)
       ]);
 
@@ -139,6 +155,14 @@ const registerGreenRvSchedulingApi = (app, { fetch, baseUrl }) => {
           error: "Upstream Error",
           message: "Failed to fetch schedule",
           status: scheduleResponse.status
+        });
+      }
+
+      if (!campervanScheduleResponse.ok) {
+        return res.status(campervanScheduleResponse.status).json({
+          error: "Upstream Error",
+          message: "Failed to fetch campervanSchedule",
+          status: campervanScheduleResponse.status
         });
       }
 
@@ -151,12 +175,19 @@ const registerGreenRvSchedulingApi = (app, { fetch, baseUrl }) => {
       }
 
       const schedule = await scheduleResponse.json();
+      const campervanSchedule = await campervanScheduleResponse.json();
       const specPlan = await specPlanResponse.json();
-      const orders = Object.values(schedule || {})
+      const scheduleOrders = Object.values(schedule || {})
         .filter(Boolean)
         .filter((item) => String(item.Customer || "").trim())
         .filter((item) => GREENRV_DEALERS.has(String(item.Dealer || "").trim().toLowerCase()))
         .map((item) => mapGreenRvScheduleItem(item, specPlan || {}));
+      const campervanScheduleOrders = Object.values(campervanSchedule || {})
+        .filter(Boolean)
+        .filter((item) => String(item.customer || "").trim())
+        .filter((item) => GREENRV_DEALERS.has(String(item.dealer || "").trim().toLowerCase()))
+        .map((item) => mapGreenRvCampervanScheduleItem(item, specPlan || {}));
+      const orders = [...scheduleOrders, ...campervanScheduleOrders];
 
       return sendEncryptedGreenRvResponse(res, {
         orders,
