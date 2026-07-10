@@ -210,7 +210,7 @@ Reads one record from `mes/requisitionTickets/{id}`.
 
 For a user-focused setup and usage guide, see [`GREENRV_API_USAGE.md`](GREENRV_API_USAGE.md).
 
-Returns encrypted schedule orders for Green RV dealers only.
+Returns encrypted schedule and campervan schedule orders for Green RV dealers only.
 
 This endpoint is private. It will not return schedule data unless both server environment variables are configured and the request supplies the correct API key.
 
@@ -276,7 +276,7 @@ const decryptGreenRvPayload = (payload, encryptionSecret) => {
 ```
 
 ### Dealer filter
-Only records from the `schedule` node are returned when both conditions match:
+Records from the `schedule` and `campervanSchedule` nodes are returned when both conditions match:
 1. `Customer` is not empty.
 2. `Dealer` matches one of these values (case-insensitive, trim spaces):
    - `Green Show`
@@ -287,7 +287,7 @@ Only records from the `schedule` node are returned when both conditions match:
    - `Bundaberg`
 
 ### Decrypted payload fields
-After decrypting `data`, each order includes these fields from the source schedule record:
+After decrypting `data`, each order from the `schedule` source includes these fields:
 - `Chassis`
 - `Customer`
 - `Dealer`
@@ -302,7 +302,19 @@ After decrypting `data`, each order includes these fields from the source schedu
 - `spec`
 - `plan`
 
-If `production status` is only numbers, it is returned as `Longtree Production: <number>`.
+Each order from the `campervanSchedule` source includes the same display names for the shared schedule fields:
+- `Chassis`
+- `Customer`
+- `Dealer`
+- `Forecast Production Date` (`dd/mm/yyyy`)
+- `Model`
+- `Model Year`
+- `Regent Production`
+- `Signed Plans Received` (`dd/mm/yyyy`)
+- `spec`
+- `plan`
+
+For `schedule` orders, if `production status` is only numbers, it is returned as `Longtree Production: <number>`.
 
 ### Decrypted payload example
 ```json
